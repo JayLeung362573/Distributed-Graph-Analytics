@@ -49,10 +49,12 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+!Makefile
 install_manifest.txt
 compile_commands.json
 
 # Temporary files
+.DS_Store
 *.tmp
 *.log
 *.bak
@@ -67,3 +69,7 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+tests/pr_*.txt
+tests/tc_*.txt
+data/small_graph.csr
+data/small_graph.csc
