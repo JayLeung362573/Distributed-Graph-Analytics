@@ -1,15 +1,176 @@
-# Distributed-Graph-Analytics
-A high-performance parallel graph analytics engine designed for large-scale network processing. This project implements fundamental graph algorithms using C++ and MPI, focusing on distributed memory architectures and efficient data representation.
+# Distributed Graph Analytics
 
-## Correctness Test
+A C++/MPI graph analytics project that implements distributed-memory versions of PageRank and Triangle Counting. The project focuses on partitioning graph workloads across MPI processes, comparing communication strategies, validating correctness across process counts, and interpreting when parallelism helps or hurts performance.
 
-## Small Graph PageRank Benchmark
+This project is intentionally benchmark-driven: the current results show that small graphs do not benefit from extra MPI processes because communication and synchronization overhead dominate computation. That behavior is documented rather than hidden, because understanding the scaling limit is part of the engineering goal.
+
+## Features
+
+- Distributed PageRank implemented in C++ with MPI
+- Distributed Triangle Counting implemented in C++ with MPI
+- Edge-aware vertex partitioning to balance edge-processing work across processes
+- MPI communication strategies for combining partial results
+- Correctness checks across different process counts
+- Benchmarks across 1, 2, and 4 MPI processes
+- Docker-based reproducible environment
+
+## Repository Structure
+
+```text
+.
+├── core/                         # Graph data structures and shared utilities
+├── data/                         # Small and medium benchmark graph inputs
+├── src/
+│   ├── page_rank_parallel.cpp     # MPI PageRank implementation
+│   └── triangle_counting_parallel.cpp
+├── Dockerfile                     # Ubuntu + OpenMPI build environment
+├── Makefile                       # Builds both MPI executables
+└── README.md
+```
+
+## Algorithms
+
+### PageRank
+
+PageRank is computed iteratively. Each MPI rank owns a contiguous range of vertices, selected using an edge-aware partitioning method so that each process receives a similar amount of outgoing-edge work.
+
+During each iteration:
+
+1. Each rank processes the outgoing edges for its assigned vertices.
+2. Local PageRank contributions are accumulated.
+3. MPI communication combines partial contributions across processes.
+4. Each rank updates the PageRank values for its local vertex block.
+
+The implementation reports each rank's processed edge count and communication time, then rank 0 reports the final PageRank sum and total runtime.
+
+### Triangle Counting
+
+Triangle Counting also uses edge-aware vertex partitioning. Each rank counts triangles involving the vertices in its local range, then the local counts are combined with MPI communication. The final unique triangle count is reported by rank 0.
+
+## Graph Input Format
+
+The programs currently read graph input through the shared `Graph::readGraphFromBinary<int>()` loader. In other words, the input path passed to `--inputFile` should point to a graph file or graph directory in the binary format expected by the project’s `core/graph.h` implementation.
+
+Example input paths used in this project:
+
+```bash
+data/small_graph
+data/medium_graph
+```
+
+## Build Locally
+
+Requirements:
+
+- C++17 compiler
+- OpenMPI
+- `make`
+
+Build both executables:
+
+```bash
+make
+```
+
+This produces:
+
+```text
+page_rank_parallel
+triangle_counting_parallel
+```
+
+Clean build outputs:
+
+```bash
+make clean
+```
+
+## Run Locally
+
+Run PageRank:
+
+```bash
+mpirun -np 4 ./page_rank_parallel --inputFile data/small_graph --nIterations 20 --strategy 2
+```
+
+Run Triangle Counting:
+
+```bash
+mpirun -np 4 ./triangle_counting_parallel --inputFile data/small_graph --strategy 2
+```
+
+Useful arguments:
+
+| Argument | Used By | Meaning |
+|---|---|---|
+| `--inputFile` | PageRank, Triangle Counting | Path to the binary graph input |
+| `--strategy` | PageRank, Triangle Counting | MPI communication strategy |
+| `--nIterations` | PageRank | Number of PageRank iterations |
+
+## Run with Docker
+
+Build the Docker image:
+
+```bash
+docker build -t distributed-graph-analytics .
+```
+
+Open a shell inside the container:
+
+```bash
+docker run --rm -it distributed-graph-analytics
+```
+
+Build inside Docker:
+
+```bash
+make
+```
+
+Run PageRank inside Docker:
+
+```bash
+mpirun --allow-run-as-root -np 4 ./page_rank_parallel --inputFile data/small_graph --nIterations 20 --strategy 2
+```
+
+Run Triangle Counting inside Docker:
+
+```bash
+mpirun --allow-run-as-root -np 4 ./triangle_counting_parallel --inputFile data/small_graph --strategy 2
+```
+
+## Correctness Testing
+
+Correctness is currently checked by comparing the algorithm results across different MPI process counts.
+
+For the small graph:
+
+- PageRank should preserve the total PageRank sum.
+- Triangle Counting should report the expected number of unique triangles.
+
+Example expected outputs:
+
+```text
+PageRank sum: 6.000000
+Unique triangles: 2
+```
+
+A future improvement is to make the correctness test parse only the algorithm result fields instead of diffing complete output. That would avoid false failures caused by timing differences, rank print order, or communication-time noise.
+
+## Benchmark Methodology
+
+The project benchmarks the same graph input across different MPI process counts. The goal is not only to find speedup, but also to identify where communication overhead outweighs the benefit of parallel execution.
+
+Measured values include:
+
+- Total runtime
+- Number of processed edges per rank
+- Communication time per rank
+- Final algorithm result
+
+## Small Graph Benchmark
 
 A small directed graph with 6 vertices and 9 edges is generated under `data/small_graph`.
-
-PageRank correctness is verified by comparing the total PageRank sum across different process counts.
-
-Triangle counting correctness is verified by comparing the total and unique triangle counts.
 
 | Algorithm | Processes | Result | Runtime |
 |---|---:|---:|---:|
@@ -18,9 +179,12 @@ Triangle counting correctness is verified by comparing the total and unique tria
 | Triangle Counting | 1 | Unique triangles = 2 | 0.000041s |
 | Triangle Counting | 4 | Unique triangles = 2 | 0.000108s |
 
+The 4-process run is slower on this graph because the graph is too small for MPI parallelism to pay off. Communication and synchronization overhead dominate the small amount of computation.
+
 ## Medium Graph PageRank Benchmark
 
 Dataset:
+
 - 10,000 vertices
 - 120,000 directed edges
 - 20 PageRank iterations
@@ -34,3 +198,31 @@ Dataset:
 The edge-aware partitioning strategy distributed work evenly across processes. With 4 processes, each rank processed approximately 600k edge operations over 20 iterations.
 
 For this medium graph, 2 processes improved runtime, while 4 processes introduced enough synchronization and communication overhead to outweigh the benefit of parallelism.
+
+## Performance Interpretation
+
+These results show an important distributed-systems tradeoff: more processes do not automatically mean faster execution. MPI programs only scale when the computation saved by distributing work is larger than the communication and synchronization overhead introduced by coordination.
+
+Current interpretation:
+
+- Small graph: parallelism is slower because there is too little work per process.
+- Medium graph: 2 processes improve runtime because the workload is large enough to benefit from distribution.
+- Medium graph with 4 processes: extra communication overhead outweighs the additional parallelism.
+
+This makes the project useful as a systems benchmark: it demonstrates implementation, measurement, and honest analysis of scaling behavior.
+
+## Future Improvements
+
+- Add larger benchmark graphs, such as 100k vertices / 1M edges.
+- Add a separate `docs/performance.md` with deeper scaling analysis.
+- Improve correctness tests by parsing numeric result fields with tolerance.
+- Record benchmark hardware and environment details.
+- Add charts for runtime, speedup, and communication overhead.
+
+## Resume Summary
+
+Possible resume bullets:
+
+- Implemented MPI-based PageRank and Triangle Counting in C++, using edge-aware partitioning to distribute graph workloads across processes.
+- Benchmarked distributed execution across 1–4 MPI processes and analyzed cases where communication overhead outweighed parallel speedup.
+- Built reproducible local and Docker workflows for compiling and running distributed graph analytics experiments.
