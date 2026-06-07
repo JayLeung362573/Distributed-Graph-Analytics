@@ -168,9 +168,11 @@ Measured values include:
 - Communication time per rank
 - Final algorithm result
 
+For a deeper explanation of the benchmark results and scaling behavior, see [docs/performance.md](docs/performance.md).
+
 ## Small Graph Benchmark
 
-A small directed graph with 6 vertices and 9 edges is generated under `data/small_graph`.
+A small directed graph with 6 vertices and 9 edges is stored as `data/small_graph.csr` and `data/small_graph.csc`.
 
 | Algorithm | Processes | Result | Runtime |
 |---|---:|---:|---:|
@@ -181,7 +183,7 @@ A small directed graph with 6 vertices and 9 edges is generated under `data/smal
 
 The 4-process run is slower on this graph because the graph is too small for MPI parallelism to pay off. Communication and synchronization overhead dominate the small amount of computation.
 
-## Medium Graph PageRank Benchmark
+## Medium Graph Benchmark Summary
 
 Dataset:
 
@@ -189,15 +191,12 @@ Dataset:
 - 120,000 directed edges
 - 20 PageRank iterations
 
-| Processes | Runtime | Approx. Speedup | Notes |
-|---|---:|---:|---|
-| 1 | 0.002408s | 1.00× | Baseline |
-| 2 | 0.001704s | 1.41× | Best result on this dataset |
-| 4 | 0.003216s | 0.75× | Slower due to MPI communication overhead |
+The current benchmark shows different scaling behavior for the two algorithms:
 
-The edge-aware partitioning strategy distributed work evenly across processes. With 4 processes, each rank processed approximately 600k edge operations over 20 iterations.
+- PageRank was fastest with 1 process on this medium graph because repeated MPI communication dominated the runtime.
+- Triangle Counting scaled better, with 4 processes achieving the fastest runtime because the algorithm performs more local computation before the final reduction.
 
-For this medium graph, 2 processes improved runtime, while 4 processes introduced enough synchronization and communication overhead to outweigh the benefit of parallelism.
+This result shows that MPI performance depends on the algorithm's computation-to-communication ratio. More details are available in [docs/performance.md](docs/performance.md).
 
 ## Performance Interpretation
 
