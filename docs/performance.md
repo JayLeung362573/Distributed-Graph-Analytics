@@ -29,17 +29,42 @@ On this graph, 4 MPI processes are slower than 1 process.
 
 This is expected because each process receives very little computation. The overhead of starting MPI processes, synchronizing ranks, and communicating partial results is larger than the computation saved by parallel execution.
 
-## Medium Graph Result
+## Medium Graph Benchmark Results
 
-The medium graph has:
+Dataset:
 
 - 10,000 vertices
 - 120,000 directed edges
 - 20 PageRank iterations
 
-The 2-process run achieved the best runtime in the current benchmark.
+### PageRank
 
-The 4-process run was slower because the extra communication and synchronization overhead outweighed the additional parallelism.
+| Processes | Runtime | Result |
+|---:|---:|---:|
+| 1 | 0.002027s | Sum = 9999.979492 |
+| 2 | 0.008469s | Sum = 10000.008789 |
+| 4 | 0.012153s | Sum = 9999.993164 |
+
+For this medium graph, PageRank becomes slower as more MPI processes are added. This suggests that the communication cost of combining PageRank contributions dominates the computation saved by distributing the vertices.
+
+The PageRank sums are close to the number of vertices, with small differences caused by floating-point accumulation order across MPI processes.
+
+### Triangle Counting
+
+| Processes | Runtime | Result |
+|---:|---:|---:|
+| 1 | 0.013904s | Unique triangles = 581 |
+| 2 | 0.006126s | Unique triangles = 581 |
+| 4 | 0.003344s | Unique triangles = 581 |
+
+Triangle Counting scales better on this graph. Unlike PageRank, it performs more local computation before the final reduction, so the communication overhead is smaller relative to the amount of work being distributed.
+
+## Interpretation
+
+The benchmark shows that MPI scalability depends on the algorithm.
+
+PageRank requires repeated communication across iterations, so it is more sensitive to communication overhead. Triangle Counting performs heavier local edge-neighborhood computation and only needs to combine counts at the end, so it benefits more from parallel execution on this graph.
+
 
 ## Why More Processes Can Be Slower
 
