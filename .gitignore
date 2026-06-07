@@ -76,3 +76,5 @@ data/small_graph.csc
 
 triangle_counting_parallel
 page_rank_parallel
+
+.vscode/
