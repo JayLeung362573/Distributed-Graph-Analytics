@@ -1,0 +1,16 @@
+.git
+.gitignore
+
+.DS_Store
+.vscode/
+
+page_rank_parallel
+triangle_counting_parallel
+
+pr_1.txt
+pr_4.txt
+tc_1.txt
+tc_4.txt
+
+*.o
+*.out
