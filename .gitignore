@@ -74,6 +74,9 @@ tests/tc_*.txt
 data/small_graph.csr
 data/small_graph.csc
 
+data/large_graph.csr
+data/large_graph.csc
+
 triangle_counting_parallel
 page_rank_parallel
 
