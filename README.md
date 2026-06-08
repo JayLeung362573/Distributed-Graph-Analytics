@@ -168,6 +168,8 @@ Measured values include:
 - Communication time per rank
 - Final algorithm result
 
+A larger 100k-vertex / 1M-edge benchmark is documented in [docs/performance.md](docs/performance.md). On that input, Triangle Counting shows clearer scaling, while PageRank benefits from 2 processes but remains sensitive to communication overhead.
+
 For a deeper explanation of the benchmark results and scaling behavior, see [docs/performance.md](docs/performance.md).
 
 ## Small Graph Benchmark
