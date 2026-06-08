@@ -6,7 +6,7 @@ echo "======================================"
 echo "Running graph analytics benchmarks"
 echo "======================================"
 
-GRAPH="data/medium_graph"
+GRAPH=${1:-data/medium_graph}
 PAGERANK_ITERATIONS=20
 PROCESSES="1 2 4"
 RUNS=3
