@@ -36,34 +36,35 @@ Dataset:
 - 10,000 vertices
 - 120,000 directed edges
 - 20 PageRank iterations
+- Each process count was run 3 times because millisecond-level MPI benchmarks can vary between runs.
 
 ### PageRank
 
-| Processes | Runtime | Result |
-|---:|---:|---:|
-| 1 | 0.002027s | Sum = 9999.979492 |
-| 2 | 0.008469s | Sum = 10000.008789 |
-| 4 | 0.012153s | Sum = 9999.993164 |
+| Processes | Run 1 | Run 2 | Run 3 | Result |
+|---:|---:|---:|---:|---:|
+| 1 | 0.002011s | 0.001969s | 0.002046s | Sum = 9999.979492 |
+| 2 | 0.001795s | 0.001477s | 0.001409s | Sum = 10000.008789 |
+| 4 | 0.001452s | 0.001577s | 0.001597s | Sum = 9999.993164 |
 
-For this medium graph, PageRank becomes slower as more MPI processes are added. This suggests that the communication cost of combining PageRank contributions dominates the computation saved by distributing the vertices.
-
-The PageRank sums are close to the number of vertices, with small differences caused by floating-point accumulation order across MPI processes.
+PageRank shows small runtime differences on this medium graph. Because all measurements are around 1–2 milliseconds, the result is sensitive to measurement noise and runtime scheduling. The PageRank sums remain close to the number of vertices, with small differences caused by floating-point accumulation order across MPI processes.
 
 ### Triangle Counting
 
-| Processes | Runtime | Result |
-|---:|---:|---:|
-| 1 | 0.013904s | Unique triangles = 581 |
-| 2 | 0.006126s | Unique triangles = 581 |
-| 4 | 0.003344s | Unique triangles = 581 |
+| Processes | Run 1 | Run 2 | Run 3 | Result |
+|---:|---:|---:|---:|---:|
+| 1 | 0.011759s | 0.011591s | 0.011589s | Unique triangles = 581 |
+| 2 | 0.005820s | 0.005938s | 0.005784s | Unique triangles = 581 |
+| 4 | 0.003190s | 0.002958s | 0.002979s | Unique triangles = 581 |
 
-Triangle Counting scales better on this graph. Unlike PageRank, it performs more local computation before the final reduction, so the communication overhead is smaller relative to the amount of work being distributed.
+Triangle Counting scales more clearly on this graph. The 4-process run is consistently faster than the 1-process run because the algorithm performs more local edge-neighborhood computation before combining counts.
 
 ## Interpretation
 
-The benchmark shows that MPI scalability depends on the algorithm.
+The benchmark shows that MPI scalability depends on the algorithm and the computation-to-communication ratio.
 
-PageRank requires repeated communication across iterations, so it is more sensitive to communication overhead. Triangle Counting performs heavier local edge-neighborhood computation and only needs to combine counts at the end, so it benefits more from parallel execution on this graph.
+PageRank requires repeated communication across iterations, and the measured runtimes are very small on the current medium graph. This makes the benchmark sensitive to timing noise. Triangle Counting performs heavier local computation and only needs to combine counts at the end, so it benefits more clearly from parallel execution on this graph.
+
+This is an important result: the project does not simply claim that MPI is always faster. It measures when distributed execution helps, when communication overhead matters, and when the benchmark is too small to make strong scaling claims.
 
 
 ## Why More Processes Can Be Slower
