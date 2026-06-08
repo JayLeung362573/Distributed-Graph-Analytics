@@ -14,10 +14,19 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install OpenMPI
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential openmpi-bin libopenmpi-dev make
+          sudo apt-get install -y build-essential openmpi-bin libopenmpi-dev make python3
+
+      - name: Generate test graph
+        run: python3 scripts/generate_small_graph.py
+
+      - name: Verify graph files
+        run: |
+          ls -lh data/
+          test -f data/small_graph.csr
+          test -f data/small_graph.csc
 
       - name: Build
         run: make
