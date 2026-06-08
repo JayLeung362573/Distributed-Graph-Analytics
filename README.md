@@ -58,7 +58,7 @@ data/small_graph
 data/medium_graph
 ```
 
-## Build Locally
+## Build and Run
 
 Requirements:
 
@@ -66,7 +66,7 @@ Requirements:
 - OpenMPI
 - `make`
 
-Build both executables:
+Build both MPI executables:
 
 ```bash
 make
@@ -79,13 +79,39 @@ page_rank_parallel
 triangle_counting_parallel
 ```
 
+Run correctness tests:
+
+```bash
+make test
+```
+
+Run the default medium-graph benchmark:
+
+```bash
+make benchmark
+```
+
+Generate the large benchmark graph locally:
+
+```bash
+make generate-large
+```
+
+Run the large-graph benchmark:
+
+```bash
+make benchmark-large
+```
+
 Clean build outputs:
 
 ```bash
 make clean
 ```
 
-## Run Locally
+## Manual Execution
+
+You can also run each algorithm manually with `mpirun`.
 
 Run PageRank:
 
@@ -121,24 +147,27 @@ Open a shell inside the container:
 docker run --rm -it distributed-graph-analytics
 ```
 
-Build inside Docker:
+Inside Docker, build and test:
 
 ```bash
 make
+make test
+make benchmark
 ```
 
-Run PageRank inside Docker:
+To run the large-graph benchmark inside Docker, mount the local project directory so Docker can access the locally generated `data/large_graph.csr` and `data/large_graph.csc` files:
 
 ```bash
-mpirun --allow-run-as-root -np 4 ./page_rank_parallel --inputFile data/small_graph --nIterations 20 --strategy 2
+docker run --rm -it -v "$PWD":/app -w /app distributed-graph-analytics bash
 ```
 
-Run Triangle Counting inside Docker:
+Then inside Docker:
 
 ```bash
-mpirun --allow-run-as-root -np 4 ./triangle_counting_parallel --inputFile data/small_graph --strategy 2
+make clean
+make
+make benchmark-large
 ```
-
 ## Correctness Testing
 
 Correctness is currently checked by comparing the algorithm results across different MPI process counts.
