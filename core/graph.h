@@ -1,6 +1,8 @@
 #include "utils.h"
 #include "quick_sort.h"
 #include <fstream>
+#include <iostream>
+#include <cstdlib>
 
 typedef std::pair<uintV, uintV> intPair;
 
@@ -63,6 +65,12 @@ public:
 
         // Read csr file
         std::ifstream input_stream(input_file_path_csr, std::ifstream::in | std::ios::binary);
+
+        if (!input_stream.is_open()) {
+            std::cerr << "Error: failed to open CSR file: " << input_file_path_csr << std::endl;
+            std::exit(1);
+        }
+
         input_stream.seekg(0, std::ios::end);
         T size = input_stream.tellg();
         input_stream.seekg(0);
@@ -73,6 +81,12 @@ public:
 
         // Read csc file
         std::ifstream input_stream2(input_file_path_csc, std::ifstream::in | std::ios::binary); 
+
+        if (!input_stream2.is_open()) {
+            std::cerr << "Error: failed to open CSC file: " << input_file_path_csc << std::endl;
+            std::exit(1);
+        }
+
         input_stream2.seekg(0, std::ios::end);
         size = input_stream2.tellg();
         input_stream2.seekg(0);
