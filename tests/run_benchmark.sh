@@ -40,7 +40,7 @@ do
 
     for r in $(seq 1 $RUNS)
     do
-        OUTPUT=$(mpirun --allow-run-as-root -np "$p" ./page_rank_parallel \
+        OUTPUT=$(mpirun --allow-run-as-root --oversubscribe -np "$p" ./page_rank_parallel \
             --inputFile "$GRAPH" \
             --nIterations "$PAGERANK_ITERATIONS" \
             --strategy 2)
@@ -64,7 +64,7 @@ do
 
     for r in $(seq 1 $RUNS)
     do
-        OUTPUT=$(mpirun --allow-run-as-root -np "$p" ./triangle_counting_parallel \
+        OUTPUT=$(mpirun --allow-run-as-root --oversubscribe -np "$p" ./triangle_counting_parallel \
             --inputFile "$GRAPH" \
             --strategy 2)
 

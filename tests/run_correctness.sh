@@ -16,10 +16,10 @@ make
 
 echo ""
 echo "Running PageRank with 1 process..."
-mpirun --allow-run-as-root -np 1 ./page_rank_parallel --inputFile "$GRAPH" --nIterations 20 --strategy 2 > pr_1.txt
+mpirun --allow-run-as-root --oversubscribe -np 1 ./page_rank_parallel --inputFile "$GRAPH" --nIterations 20 --strategy 2 > pr_1.txt
 
 echo "Running PageRank with 4 processes..."
-mpirun --allow-run-as-root -np 4 ./page_rank_parallel --inputFile "$GRAPH" --nIterations 20 --strategy 2 > pr_4.txt
+mpirun --allow-run-as-root --oversubscribe -np 4 ./page_rank_parallel --inputFile "$GRAPH" --nIterations 20 --strategy 2 > pr_4.txt
 
 PR_SUM_1=$(grep "Sum of page rank" pr_1.txt | awk '{print $6}')
 PR_SUM_4=$(grep "Sum of page rank" pr_4.txt | awk '{print $6}')
@@ -46,10 +46,10 @@ BEGIN {
 
 echo ""
 echo "Running Triangle Counting with 1 process..."
-mpirun --allow-run-as-root -np 1 ./triangle_counting_parallel --inputFile "$GRAPH" --strategy 2 > tc_1.txt
+mpirun --allow-run-as-root --oversubscribe -np 1 ./triangle_counting_parallel --inputFile "$GRAPH" --strategy 2 > tc_1.txt
 
 echo "Running Triangle Counting with 4 processes..."
-mpirun --allow-run-as-root -np 4 ./triangle_counting_parallel --inputFile "$GRAPH" --strategy 2 > tc_4.txt
+mpirun --allow-run-as-root --oversubscribe -np 4 ./triangle_counting_parallel --inputFile "$GRAPH" --strategy 2 > tc_4.txt
 
 TC_UNIQUE_1=$(grep "Number of unique triangles" tc_1.txt | awk '{print $6}')
 TC_UNIQUE_4=$(grep "Number of unique triangles" tc_4.txt | awk '{print $6}')
