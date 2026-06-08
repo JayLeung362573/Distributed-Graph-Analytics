@@ -1,5 +1,7 @@
 # Distributed Graph Analytics
 
+![CI](https://github.com/JayLeung362573/Distributed-Graph-Analytics/actions/workflows/ci.yml/badge.svg)
+
 A C++/MPI graph analytics project that implements distributed-memory versions of PageRank and Triangle Counting. The project focuses on partitioning graph workloads across MPI processes, comparing communication strategies, validating correctness across process counts, and interpreting when parallelism helps or hurts performance.
 
 This project is intentionally benchmark-driven: the current results show that small graphs do not benefit from extra MPI processes because communication and synchronization overhead dominate computation. That behavior is documented rather than hidden, because understanding the scaling limit is part of the engineering goal.
