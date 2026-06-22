@@ -2,8 +2,9 @@
 #include <cstdio>
 #include <vector>
 #include <mpi.h>
+
 #include "core/utils.h"
-#include "core/graph.h"
+#include "core/partition.h"
 
 #ifdef USE_INT
 #define INIT_PAGE_RANK 100000
@@ -24,32 +25,6 @@ typedef int64_t PageRankType;
 typedef float PageRankType;
 #endif
 
-void getVertexRange(Graph& g, int world_rank, int world_size, 
-    uintV &start_vertex, uintV &end_vertex){
-        start_vertex = 0;
-        end_vertex = 0;
-
-        uintV n = g.n_;
-        long m = g.m_;
-
-        for(int i = 0; i < world_size; i++){
-            start_vertex = end_vertex;
-            long count = 0;
-            
-            while(end_vertex < n){
-                count += g.vertices_[end_vertex].getOutDegree();
-                end_vertex += 1;
-                if(count >= m / world_size){
-                    break;
-                }
-            }
-
-            if(i == world_rank){
-                break;
-            }
-        }
-}
-
 void buildScatter(const std::vector<uintV> &starts,
                       const std::vector<uintV> &ends,
                       std::vector<int> &sendcounts,
@@ -65,14 +40,28 @@ void buildScatter(const std::vector<uintV> &starts,
     }
 }
 
-void pageRankParallel(Graph &g, int max_iters, int strategy, int world_rank, int world_size){
+void pageRankParallel(
+    Graph& g,
+    int max_iters,
+    int strategy,
+    PartitionStrategy partition_strategy,
+    int world_rank,
+    int world_size
+) {
     timer total_timer;
     total_timer.start();
 
     uintV n = g.n_;
     uintV start_v, end_v;
 
-    getVertexRange(g, world_rank, world_size, start_v, end_v);
+    getVertexRange(
+        g,
+        world_rank,
+        world_size,
+        partition_strategy,
+        start_v,
+        end_v
+    );
 
     PageRankType *pr_curr = new PageRankType[n];
     PageRankType *pr_next = new PageRankType[n];
@@ -90,7 +79,14 @@ void pageRankParallel(Graph &g, int max_iters, int strategy, int world_rank, int
     std::vector<int> counts, displacements;
 
     for(int i = 0; i < world_size; i++) {
-        getVertexRange(g, i, world_size, all_starts[i], all_ends[i]);
+        getVertexRange(
+            g,
+            i,
+            world_size,
+            partition_strategy,
+            all_starts[i],
+            all_ends[i]
+        );
     }
 
     buildScatter(all_starts, all_ends, counts, displacements);
@@ -194,15 +190,51 @@ int main(int argc, char *argv[])
 
     cxxopts::Options options("page_rank_parallel", "Parallel PageRank using MPI");
     options.add_options("", {
-                                {"nIterations", "Maximum number of iterations", cxxopts::value<uint>()->default_value(DEFAULT_MAX_ITER)},
-                                {"strategy", "Strategy to be used", cxxopts::value<uint>()->default_value(DEFAULT_STRATEGY)},
-                                {"inputFile", "Input graph file path", cxxopts::value<std::string>()->default_value("/scratch/input_graphs/roadNet-CA")},
-                            });
+        {
+            "nIterations",
+            "Maximum number of iterations",
+            cxxopts::value<uint>()->default_value(DEFAULT_MAX_ITER)
+        },
+        {
+            "strategy",
+            "Strategy to be used",
+            cxxopts::value<uint>()->default_value(DEFAULT_STRATEGY)
+        },
+        {
+            "partition",
+            "Partition strategy: edge or vertex",
+            cxxopts::value<std::string>()->default_value("edge")
+        },
+        {
+            "inputFile",
+            "Input graph file path",
+            cxxopts::value<std::string>()->default_value(
+                "/scratch/input_graphs/roadNet-CA"
+            )
+        },
+    });
 
     auto cl_options = options.parse(argc, argv);
     uint strategy = cl_options["strategy"].as<uint>();
     uint max_iterations = cl_options["nIterations"].as<uint>();
     std::string input_file_path = cl_options["inputFile"].as<std::string>();
+
+    std::string partition_value =
+        cl_options["partition"].as<std::string>();
+
+    PartitionStrategy partition_strategy;
+
+    try {
+        partition_strategy =
+            parsePartitionStrategy(partition_value);
+    } catch (const std::invalid_argument& error) {
+        if (world_rank == 0) {
+            std::cerr << error.what() << '\n';
+        }
+
+        MPI_Finalize();
+        return 1;
+    }
 
     if (world_rank == 0) {
 #ifdef USE_INT
@@ -212,6 +244,10 @@ int main(int argc, char *argv[])
 #endif
         std::printf("World size : %d\n", world_size);
         std::printf("Communication strategy : %d\n", strategy);
+        std::printf(
+            "Partition strategy : %s\n",
+            partitionStrategyName(partition_strategy)
+        );
         std::printf("Iterations : %d\n", max_iterations);
         std::printf("rank, num_edges, communication_time\n");
     }
@@ -219,7 +255,14 @@ int main(int argc, char *argv[])
     Graph g;
     g.readGraphFromBinary<int>(input_file_path);
 
-    pageRankParallel(g, max_iterations, strategy, world_rank, world_size);
+    pageRankParallel(
+        g,
+        max_iterations,
+        strategy,
+        partition_strategy,
+        world_rank,
+        world_size
+    );
 
     MPI_Finalize();
 
