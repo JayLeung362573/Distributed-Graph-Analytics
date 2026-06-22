@@ -1,0 +1,7 @@
+algorithm,processes,median_runtime_ms
+PageRank,1,21.349
+PageRank,2,12.836
+PageRank,4,15.340
+Triangle Counting,1,99.736
+Triangle Counting,2,53.282
+Triangle Counting,4,34.784

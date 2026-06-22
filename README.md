@@ -19,6 +19,14 @@ The table below summarizes the median runtime from three benchmark runs. Speedup
 
 These results show that scalability depends on the algorithm's computation-to-communication ratio. Triangle Counting benefits more consistently from additional MPI processes, while iterative PageRank is more sensitive to communication and synchronization overhead.
 
+![Large-graph MPI runtime scaling](docs/images/large_graph_runtime_scaling.png)
+
+The chart reports the median runtime from three runs on the
+100k-vertex, 1M-edge graph. Triangle Counting scales consistently
+from 1 to 4 processes, while PageRank performs best with 2 processes
+and becomes more variable at 4 processes because it requires repeated
+communication during every iteration.
+
 Detailed measurements and interpretation are available in [docs/performance.md](docs/performance.md).
 
 ## Features
