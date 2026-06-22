@@ -6,6 +6,21 @@ A C++/MPI graph analytics project that implements distributed-memory versions of
 
 This project is intentionally benchmark-driven: the current results show that small graphs do not benefit from extra MPI processes because communication and synchronization overhead dominate computation. That behavior is documented rather than hidden, because understanding the scaling limit is part of the engineering goal.
 
+## Benchmark Snapshot
+
+The table below summarizes the median runtime from three benchmark runs. Speedup is calculated relative to the single-process runtime for the same graph and algorithm.
+
+| Dataset | Algorithm | 1 Process | Best Parallel Run | Speedup | Main Observation |
+|---|---|---:|---:|---:|---|
+| Medium: 10k vertices, 120k edges | PageRank | 2.011 ms | 1.477 ms with 2 processes | 1.36x | Modest improvement; repeated communication limits scaling |
+| Medium: 10k vertices, 120k edges | Triangle Counting | 11.591 ms | 2.979 ms with 4 processes | 3.89x | Clear scaling from heavier local computation |
+| Large: 100k vertices, 1M edges | PageRank | 21.349 ms | 12.836 ms with 2 processes | 1.66x | Two processes help, while four-process runs are more variable |
+| Large: 100k vertices, 1M edges | Triangle Counting | 99.736 ms | 34.784 ms with 4 processes | 2.87x | Consistent scaling across increasing process counts |
+
+These results show that scalability depends on the algorithm's computation-to-communication ratio. Triangle Counting benefits more consistently from additional MPI processes, while iterative PageRank is more sensitive to communication and synchronization overhead.
+
+Detailed measurements and interpretation are available in [docs/performance.md](docs/performance.md).
+
 ## Features
 
 - Distributed PageRank implemented in C++ with MPI
@@ -226,8 +241,8 @@ Dataset:
 
 The current benchmark shows different scaling behavior for the two algorithms:
 
-- PageRank was fastest with 1 process on this medium graph because repeated MPI communication dominated the runtime.
-- Triangle Counting scaled better, with 4 processes achieving the fastest runtime because the algorithm performs more local computation before the final reduction.
+- PageRank achieved its best median runtime with 2 processes. The improvement is modest because each iteration requires communication, and the total runtime is small enough to remain sensitive to measurement noise.
+- Triangle Counting scaled more clearly, with 4 processes reducing the median runtime from 11.591 ms to 2.979 ms because more of its work can be performed locally before the final reduction.
 
 This result shows that MPI performance depends on the algorithm's computation-to-communication ratio. More details are available in [docs/performance.md](docs/performance.md).
 
@@ -237,9 +252,11 @@ These results show an important distributed-systems tradeoff: more processes do 
 
 Current interpretation:
 
-- Small graph: parallelism is slower because there is too little work per process.
-- Medium graph: 2 processes improve runtime because the workload is large enough to benefit from distribution.
-- Medium graph with 4 processes: extra communication overhead outweighs the additional parallelism.
+- Small graph: single-process execution is faster because there is too little work to amortize MPI startup and communication overhead.
+- Medium PageRank: 2 processes achieve the best median runtime, while 4 processes do not provide additional improvement.
+- Medium Triangle Counting: 4 processes achieve the best runtime and show clear scaling.
+- Large PageRank: 2 processes consistently outperform 1 process, while 4-process runtime is more variable.
+- Large Triangle Counting: 4 processes consistently provide the fastest runtime.
 
 This makes the project useful as a systems benchmark: it demonstrates implementation, measurement, and honest analysis of scaling behavior.
 
