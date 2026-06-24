@@ -1,0 +1,17 @@
+algorithm,partition,rank,edges_processed
+page_rank,edge,0,29500
+page_rank,edge,1,29500
+page_rank,edge,2,29500
+page_rank,edge,3,29500
+triangle_counting,edge,0,29500
+triangle_counting,edge,1,29500
+triangle_counting,edge,2,29500
+triangle_counting,edge,3,29500
+page_rank,vertex,0,103000
+page_rank,vertex,1,5000
+page_rank,vertex,2,5000
+page_rank,vertex,3,5000
+triangle_counting,vertex,0,103000
+triangle_counting,vertex,1,5000
+triangle_counting,vertex,2,5000
+triangle_counting,vertex,3,5000

@@ -2,7 +2,7 @@ MPICXX ?= mpic++
 CXXFLAGS ?= -O3 -std=c++17 -Wall -Wextra
 CPPFLAGS ?= -I.
 
-.PHONY: all clean test benchmark benchmark-large generate-large generate-skewed
+.PHONY: all clean test benchmark benchmark-large benchmark-partition generate-large generate-skewed
 
 all: page_rank_parallel triangle_counting_parallel
 
@@ -26,6 +26,9 @@ generate-skewed:
 
 benchmark-large: all
 	./tests/run_benchmark.sh data/large_graph
+
+benchmark-partition: all
+	./tests/run_partition_benchmark.sh
 
 clean:
 	rm -f page_rank_parallel triangle_counting_parallel
