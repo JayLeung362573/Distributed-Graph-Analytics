@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
     std::string input_file_path = cl_options["inputFile"].as<std::string>();
     
     std::string partition_value =
-    cl_options["partition"].as<std::string>();
+        cl_options["partition"].as<std::string>();
 
     PartitionStrategy partition_strategy;
 
