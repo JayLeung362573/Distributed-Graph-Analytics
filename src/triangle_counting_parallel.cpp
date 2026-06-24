@@ -1,9 +1,10 @@
 #include <iostream>
 #include <cstdio>
-#include "core/utils.h"
-#include "core/graph.h"
-#include <mpi.h>
 #include <vector>
+#include <mpi.h>
+
+#include "core/utils.h"
+#include "core/partition.h"
 
 long countTriangles(uintV *array1, uintE len1, uintV *array2, uintE len2,
                      uintV u, uintV v) {
@@ -31,39 +32,26 @@ long countTriangles(uintV *array1, uintE len1, uintV *array2, uintE len2,
   return count;
 }
 
-void getVertexRange(Graph& g, int world_rank, int world_size, 
-    uintV &start_vertex, uintV &end_vertex){
-        start_vertex = 0;
-        end_vertex = 0;
-
-        uintV n = g.n_;
-        long m = g.m_;
-
-        for(int i = 0; i < world_size; i++){
-            start_vertex = end_vertex;
-            long count = 0;
-            
-            while(end_vertex < n){
-                count += g.vertices_[end_vertex].getOutDegree();
-                end_vertex += 1;
-                if(count >= m / world_size){
-                    break;
-                }
-            }
-
-            if(i == world_rank){
-                break;
-            }
-        }
-}
-
-void triangleCountParallel(Graph &g, int world_rank, int world_size, int strategy)
+void triangleCountParallel(
+    Graph& g,
+    int world_rank,
+    int world_size,
+    int strategy,
+    PartitionStrategy partition_strategy
+)
 {
     timer total_timer;
     total_timer.start();
 
     uintV start_vertex, end_vertex;
-    getVertexRange(g, world_rank, world_size, start_vertex, end_vertex);
+    getVertexRange(
+        g,
+        world_rank,
+        world_size,
+        partition_strategy,
+        start_vertex,
+        end_vertex
+    );
 
     long local_triangle_count = 0;    
     long edges_processed = 0;
@@ -139,27 +127,74 @@ int main(int argc, char *argv[])
 
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    cxxopts::Options options("triangle_counting_parallel", "Count the number of triangles using MPI");    options.add_options("custom", {
-                                      {"strategy", "Strategy to be used", cxxopts::value<uint>()->default_value(DEFAULT_STRATEGY)},
-                                      {"inputFile", "Input graph file path", cxxopts::value<std::string>()->default_value("/scratch/input_graphs/roadNet-CA")},
-                                  });
+    cxxopts::Options options(
+        "triangle_counting_parallel",
+        "Count the number of triangles using MPI"
+    );
+
+    options.add_options("custom", {
+        {
+            "strategy",
+            "Strategy to be used",
+            cxxopts::value<uint>()->default_value(DEFAULT_STRATEGY)
+        },
+        {
+            "partition",
+            "Partition strategy: edge or vertex",
+            cxxopts::value<std::string>()->default_value("edge")
+        },
+        {
+            "inputFile",
+            "Input graph file path",
+            cxxopts::value<std::string>()->default_value(
+                "/scratch/input_graphs/roadNet-CA"
+            )
+        },
+    });
 
     auto cl_options = options.parse(argc, argv);
     uint strategy = cl_options["strategy"].as<uint>();
     std::string input_file_path = cl_options["inputFile"].as<std::string>();
+    
+    std::string partition_value =
+    cl_options["partition"].as<std::string>();
+
+    PartitionStrategy partition_strategy;
+
+    try {
+        partition_strategy =
+            parsePartitionStrategy(partition_value);
+    } catch (const std::invalid_argument& error) {
+        if (world_rank == 0) {
+            std::cerr << error.what() << '\n';
+        }
+
+        MPI_Finalize();
+        return 1;
+    }
 
     // Get the world size and print it out here
     // std::printf("World size : %d\n", world_size);
     if (world_rank == 0) {
         std::printf("World size : %d\n", world_size);
         std::printf("Communication strategy : %d\n", strategy);
+        std::printf(
+            "Partition strategy : %s\n",
+            partitionStrategyName(partition_strategy)
+        );
         std::printf("rank, edges, triangle_count, communication_time\n");
     }
 
     Graph g;
     g.readGraphFromBinary<int>(input_file_path);
 
-    triangleCountParallel(g, world_rank, world_size, strategy);
+    triangleCountParallel(
+        g,
+        world_rank,
+        world_size,
+        strategy,
+        partition_strategy
+    );
 
     MPI_Finalize();
 
