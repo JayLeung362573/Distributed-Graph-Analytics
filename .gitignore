@@ -77,6 +77,9 @@ data/small_graph.csc
 data/large_graph.csr
 data/large_graph.csc
 
+data/skewed_graph.csr
+data/skewed_graph.csc
+
 triangle_counting_parallel
 page_rank_parallel
 

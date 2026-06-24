@@ -2,7 +2,7 @@ MPICXX ?= mpic++
 CXXFLAGS ?= -O3 -std=c++17 -Wall -Wextra
 CPPFLAGS ?= -I.
 
-.PHONY: all clean test benchmark benchmark-large generate-large
+.PHONY: all clean test benchmark benchmark-large generate-large generate-skewed
 
 all: page_rank_parallel triangle_counting_parallel
 
@@ -20,6 +20,9 @@ benchmark: all
 
 generate-large:
 	python3 scripts/generate_large_graph.py
+
+generate-skewed:
+	python3 scripts/generate_skewed_graph.py
 
 benchmark-large: all
 	./tests/run_benchmark.sh data/large_graph
