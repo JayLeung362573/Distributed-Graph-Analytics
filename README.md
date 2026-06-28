@@ -2,9 +2,18 @@
 
 ![CI](https://github.com/JayLeung362573/Distributed-Graph-Analytics/actions/workflows/ci.yml/badge.svg)
 
-A C++/MPI graph analytics project that implements distributed-memory versions of PageRank and Triangle Counting. The project focuses on partitioning graph workloads across MPI processes, comparing communication strategies, validating correctness across process counts, and interpreting when parallelism helps or hurts performance.
+A benchmark-driven C++17 and MPI graph analytics engine implementing
+distributed PageRank and Triangle Counting. The project supports
+selectable edge-aware and equal-vertex partitioning, multiple MPI
+communication strategies, correctness validation across process counts,
+and reproducible Docker-based benchmarks.
 
-This project is intentionally benchmark-driven: the current results show that small graphs do not benefit from extra MPI processes because communication and synchronization overhead dominate computation. That behavior is documented rather than hidden, because understanding the scaling limit is part of the engineering goal.
+The evaluation measures both runtime scaling and per-rank workload
+balance. Results show that Triangle Counting benefits more consistently
+from additional MPI processes, while iterative PageRank is more
+sensitive to communication overhead. On a deliberately degree-skewed
+graph, edge-aware partitioning reduces the measured maximum-to-minimum
+edge workload ratio from 20.60x to 1.00x.
 
 ## Benchmark Snapshot
 
@@ -27,17 +36,44 @@ from 1 to 4 processes, while PageRank performs best with 2 processes
 and becomes more variable at 4 processes because it requires repeated
 communication during every iteration.
 
+### Partitioning Snapshot
+
+A separate benchmark compares edge-aware and equal-vertex partitioning
+on a deliberately degree-skewed synthetic graph with 10,000 vertices,
+118,000 directed edges, and 4 MPI processes.
+
+| Partition Strategy | Rank Workloads | Maximum / Average | Maximum / Minimum |
+|---|---|---:|---:|
+| Edge-aware | 29,500 / 29,500 / 29,500 / 29,500 | 1.00x | 1.00x |
+| Equal-vertex | 103,000 / 5,000 / 5,000 / 5,000 | 3.49x | 20.60x |
+
+![Partition workload balance](docs/images/partition_workload_balance.png)
+
+On this constructed dataset, equal vertex counts do not produce equal
+computational work because the high-degree vertices are concentrated at
+the beginning of the vertex range. Edge-aware partitioning instead
+assigns each rank the same number of outgoing edges.
+
+This benchmark demonstrates improved workload balance rather than a
+20.60x runtime speedup. End-to-end runtime also depends on MPI
+communication, synchronization, memory access, and algorithm-specific
+processing costs.
+
 Detailed measurements and interpretation are available in [docs/performance.md](docs/performance.md).
 
 ## Features
 
-- Distributed PageRank implemented in C++ with MPI
-- Distributed Triangle Counting implemented in C++ with MPI
-- Edge-aware vertex partitioning to balance edge-processing work across processes
-- MPI communication strategies for combining partial results
-- Correctness checks across different process counts
-- Benchmarks across 1, 2, and 4 MPI processes
-- Docker-based reproducible environment
+- Distributed PageRank and Triangle Counting implemented in C++17 with MPI
+- Selectable edge-aware and equal-vertex graph partitioning
+- Shared partitioning utilities used by both distributed algorithms
+- Multiple MPI communication strategies for combining partial results
+- Numeric correctness tests across 1 and 4 MPI processes
+- Correctness validation for both partitioning strategies
+- Runtime benchmarks across 1, 2, and 4 MPI processes
+- Degree-skewed workload benchmark with per-rank edge measurements
+- Reproducible graph generators, CSV results, and visualization scripts
+- Docker-based OpenMPI build, test, and benchmark environment
+- GitHub Actions continuous integration
 
 ## Repository Structure
 
