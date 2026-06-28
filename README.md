@@ -33,8 +33,8 @@ These results show that scalability depends on the algorithm's computation-to-co
 The chart reports the median runtime from three runs on the
 100k-vertex, 1M-edge graph. Triangle Counting scales consistently
 from 1 to 4 processes, while PageRank performs best with 2 processes
-and becomes more variable at 4 processes because it requires repeated
-communication during every iteration.
+and shows higher variability at 4 processes, consistent with increased
+communication, synchronization, and runtime scheduling overhead.
 
 ### Partitioning Snapshot
 
@@ -79,13 +79,28 @@ Detailed measurements and interpretation are available in [docs/performance.md](
 
 ```text
 .
-├── core/                         # Graph data structures and shared utilities
-├── data/                         # Small and medium benchmark graph inputs
+├── benchmarks/                    # Committed benchmark result datasets
+├── core/
+│   ├── graph.h                    # Binary graph representation and loader
+│   └── partition.h                # Shared partitioning strategies
+├── data/                          # Small and medium graph inputs
+├── docs/
+│   ├── images/                    # Generated benchmark charts
+│   └── performance.md             # Detailed performance analysis
+├── scripts/
+│   ├── generate_large_graph.py
+│   ├── generate_skewed_graph.py
+│   ├── plot_partition_balance.py
+│   └── plot_runtime_scaling.py
 ├── src/
-│   ├── page_rank_parallel.cpp     # MPI PageRank implementation
+│   ├── page_rank_parallel.cpp
 │   └── triangle_counting_parallel.cpp
-├── Dockerfile                     # Ubuntu + OpenMPI build environment
-├── Makefile                       # Builds both MPI executables
+├── tests/
+│   ├── run_benchmark.sh
+│   ├── run_correctness.sh
+│   └── run_partition_benchmark.sh
+├── Dockerfile
+├── Makefile
 └── README.md
 ```
 
@@ -93,7 +108,13 @@ Detailed measurements and interpretation are available in [docs/performance.md](
 
 ### PageRank
 
-PageRank is computed iteratively. Each MPI rank owns a contiguous range of vertices, selected using an edge-aware partitioning method so that each process receives a similar amount of outgoing-edge work.
+PageRank is computed iteratively. Each MPI rank owns a contiguous range
+of vertices selected by one of two partitioning strategies:
+
+- `edge`: assigns ranges based on outgoing-edge counts
+- `vertex`: assigns approximately equal numbers of vertices
+
+Edge-aware partitioning is the default.
 
 During each iteration:
 
@@ -102,19 +123,27 @@ During each iteration:
 3. MPI communication combines partial contributions across processes.
 4. Each rank updates the PageRank values for its local vertex block.
 
-The implementation reports each rank's processed edge count and communication time, then rank 0 reports the final PageRank sum and total runtime.
+The implementation reports each rank's processed edge count and
+communication time. Rank 0 reports the final PageRank sum and total
+runtime.
 
 ### Triangle Counting
 
-Triangle Counting also uses edge-aware vertex partitioning. Each rank counts triangles involving the vertices in its local range, then the local counts are combined with MPI communication. The final unique triangle count is reported by rank 0.
+Triangle Counting uses the same selectable partitioning strategies.
+Each rank counts triangles involving vertices in its assigned range,
+then local counts are combined through MPI communication.
+
+Rank 0 reports the final unique triangle count and total runtime.
 
 ## Graph Input Format
 
-The programs currently read graph input through the shared `Graph::readGraphFromBinary<int>()` loader. In other words, the input path passed to `--inputFile` should point to a graph file or graph directory in the binary format expected by the project’s `core/graph.h` implementation.
+The programs currently read graph input through the shared `Graph::readGraphFromBinary<int>()` loader. The value passed to `--inputFile` is a graph input prefix. For example,
+`data/small_graph` refers to `data/small_graph.csr` and
+`data/small_graph.csc`.
 
 Example input paths used in this project:
 
-```bash
+```text
 data/small_graph
 data/medium_graph
 ```
@@ -164,6 +193,31 @@ Run the large-graph benchmark:
 make benchmark-large
 ```
 
+Generate the degree-skewed partition benchmark graph:
+
+```bash
+make generate-skewed
+```
+
+Compare per-rank workload under edge-aware and equal-vertex
+partitioning:
+
+```bash
+make benchmark-partition
+```
+
+The partition benchmark writes its detailed results to:
+
+```text
+benchmarks/partition_loads.csv
+```
+
+Regenerate the partition workload chart:
+
+```bash
+make plot-partition
+```
+
 Clean build outputs:
 
 ```bash
@@ -174,24 +228,35 @@ make clean
 
 You can also run each algorithm manually with `mpirun`.
 
-Run PageRank:
+### PageRank
 
 ```bash
-mpirun -np 4 ./page_rank_parallel --inputFile data/small_graph --nIterations 20 --strategy 2
+mpirun -np 4 \
+  ./page_rank_parallel \
+  --inputFile data/small_graph \
+  --nIterations 20 \
+  --strategy 2 \
+  --partition edge
 ```
 
-Run Triangle Counting:
+### Triangle Counting
 
 ```bash
-mpirun -np 4 ./triangle_counting_parallel --inputFile data/small_graph --strategy 2
+mpirun -np 4 \
+  ./triangle_counting_parallel \
+  --inputFile data/small_graph \
+  --strategy 2 \
+  --partition edge
 ```
 
 Useful arguments:
 
 | Argument | Used By | Meaning |
 |---|---|---|
-| `--inputFile` | PageRank, Triangle Counting | Path to the binary graph input |
+| `--inputFile` | PageRank, Triangle Counting | Binary graph input prefix |
 | `--strategy` | PageRank, Triangle Counting | MPI communication strategy |
+| `--partition edge` | PageRank, Triangle Counting | Edge-aware partitioning; default |
+| `--partition vertex` | PageRank, Triangle Counting | Equal-vertex partitioning |
 | `--nIterations` | PageRank | Number of PageRank iterations |
 
 ## Run with Docker
@@ -208,7 +273,7 @@ Open a shell inside the container:
 docker run --rm -it distributed-graph-analytics
 ```
 
-Inside Docker, build and test:
+Inside Docker, build, test, and run the default benchmark:
 
 ```bash
 make
@@ -216,36 +281,61 @@ make test
 make benchmark
 ```
 
-To run the large-graph benchmark inside Docker, mount the local project directory so Docker can access the locally generated `data/large_graph.csr` and `data/large_graph.csc` files:
+For commands that generate files or benchmark data, mount the local
+repository so the results remain available after the container exits:
 
 ```bash
-docker run --rm -it -v "$PWD":/app -w /app distributed-graph-analytics bash
+docker run --rm \
+  -v "$PWD":/app \
+  -w /app \
+  distributed-graph-analytics \
+  bash -lc "make benchmark-partition"
 ```
 
-Then inside Docker:
+Run the large-graph benchmark through Docker:
 
 ```bash
-make clean
-make
-make benchmark-large
+docker run --rm \
+  -v "$PWD":/app \
+  -w /app \
+  distributed-graph-analytics \
+  bash -lc "make benchmark-large"
 ```
+
 ## Correctness Testing
 
-Correctness is currently checked by comparing the algorithm results across different MPI process counts.
+The correctness suite runs both algorithms with:
 
-For the small graph:
+- 1 MPI process
+- 4 MPI processes
+- Edge-aware partitioning
+- Equal-vertex partitioning
 
-- PageRank should preserve the total PageRank sum.
-- Triangle Counting should report the expected number of unique triangles.
-
-Example expected outputs:
+The small test graph has known expected results:
 
 ```text
 PageRank sum: 6.000000
 Unique triangles: 2
 ```
 
-A future improvement is to make the correctness test parse only the algorithm result fields instead of diffing complete output. That would avoid false failures caused by timing differences, rank print order, or communication-time noise.
+The test script parses only the final numeric result fields rather than
+comparing complete program output. This avoids false failures caused by
+rank print order, runtime measurements, and communication-time noise.
+
+PageRank values are checked with a floating-point tolerance of `0.0001`.
+Triangle counts are checked using exact integer equality.
+
+For each partitioning strategy, the suite verifies:
+
+1. The 1-process result matches the expected result.
+2. The 4-process result matches the expected result.
+3. The 1-process and 4-process results match each other.
+
+Run the complete suite with:
+
+```bash
+make test
+```
 
 ## Benchmark Methodology
 
@@ -304,18 +394,12 @@ Current interpretation:
 
 This makes the project useful as a systems benchmark: it demonstrates implementation, measurement, and honest analysis of scaling behavior.
 
-## Future Improvements
+## Future Work
 
-- Add larger benchmark graphs, such as 100k vertices / 1M edges.
-- Add a separate `docs/performance.md` with deeper scaling analysis.
-- Improve correctness tests by parsing numeric result fields with tolerance.
-- Record benchmark hardware and environment details.
-- Add charts for runtime, speedup, and communication overhead.
-
-## Resume Summary
-
-Possible resume bullets:
-
-- Implemented MPI-based PageRank and Triangle Counting in C++, using edge-aware partitioning to distribute graph workloads across processes.
-- Benchmarked distributed execution across 1–4 MPI processes and analyzed cases where communication overhead outweighed parallel speedup.
-- Built reproducible local and Docker workflows for compiling and running distributed graph analytics experiments.
+- Compare edge-aware and equal-vertex partitioning using end-to-end
+  runtime, not only edge workload
+- Benchmark a real scale-free or power-law graph
+- Record benchmark hardware and environment metadata
+- Separate computation time from MPI communication time
+- Test across multiple machines or an MPI cluster
+- Evaluate graphs with millions of vertices and edges
