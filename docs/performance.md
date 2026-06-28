@@ -213,3 +213,87 @@ Generate the synthetic graph:
 ```bash
 make generate-skewed
 ```
+
+### Running Benchmarks
+
+Run locally when OpenMPI is installed:
+
+```bash
+make benchmark-partition
+```
+
+Or run the benchmark in the reproducible Docker environment:
+
+```
+docker run --rm \
+  -v "$PWD":/app \
+  -w /app \
+  distributed-graph-analytics \
+  bash -lc "make benchmark-partition"
+```
+
+The detailed per-rank results are written to:
+
+```text
+benchmarks/partition_loads.csv
+```
+
+Regenerate the workload chart:
+
+```bash
+make plot-partition
+```
+
+## Overall Interpretation
+
+The current benchmarks show that MPI scalability depends on graph size,
+algorithm structure, communication frequency, and workload balance.
+
+- **Small graph:** One process is faster because the graph contains too
+  little work to amortize MPI startup and communication overhead.
+- **Medium PageRank:** Two processes achieve the best median runtime,
+  but the measurements are short enough to remain sensitive to timing
+  noise.
+- **Medium Triangle Counting:** Four processes provide clear and
+  consistent runtime improvement.
+- **Large PageRank:** Two processes consistently outperform one process,
+  while four-process measurements are more variable.
+- **Large Triangle Counting:** Four processes consistently provide the
+  fastest runtime.
+- **Degree-skewed graph:** Edge-aware partitioning distributes outgoing
+  edges much more evenly than equal-vertex partitioning.
+
+The results do not support the claim that adding MPI processes always
+improves performance. They instead show when distributed execution
+helps, when communication overhead matters, and why partitioning must
+account for graph workload rather than vertex count alone.
+
+## Limitations
+
+The current evaluation has several limitations:
+
+- Benchmarks were run on a single machine rather than a multi-node
+  cluster.
+- Some measured runtimes are only a few milliseconds and are sensitive
+  to operating-system scheduling and measurement noise.
+- Process counts are limited to 1, 2, and 4.
+- The partitioning comparison uses a deliberately skewed synthetic
+  graph.
+- Edge count is an approximation of computational work; vertices with
+  the same degree may still have different processing costs.
+- Improved workload balance has not yet been measured against
+  end-to-end runtime for both partitioning strategies.
+
+## Future Work
+
+Potential extensions include:
+
+- Benchmarking a real scale-free or power-law graph
+- Comparing edge-aware and equal-vertex partitioning using end-to-end
+  runtime
+- Recording load-imbalance metrics automatically for multiple process
+  counts
+- Separating computation time from communication time
+- Testing on multiple machines or an MPI cluster
+- Evaluating larger graphs, such as 1 million vertices and 5 million or
+  more edges
