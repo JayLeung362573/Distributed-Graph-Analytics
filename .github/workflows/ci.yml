@@ -33,3 +33,12 @@ jobs:
 
       - name: Run correctness tests
         run: make test
+
+      - name: Generate degree-skewed benchmark graph
+        run: make generate-skewed
+
+      - name: Run partition workload benchmark
+        run: make benchmark-partition
+
+      - name: Verify reproducible partition results
+        run: git diff --exit-code -- benchmarks/partition_loads.csv
